@@ -1,33 +1,45 @@
 class Users::Create < ActiveInteraction::Base
-  hash :params
+  string :name, :patronymic, :email, :nationality, :country, :gender
+  integer :age
+  array :interests, default: []
+  array :skills, default: []
 
   def execute
-    return unless params['name']
-    return unless params['patronymic']
-    return unless params['email']
-    return unless params['age']
-    return unless params['nationality']
-    return unless params['country']
-    return unless params['gender']
+    user_full_name = "#{name} #{patronymic}"
 
-    return if User.where(email: params['email']).exists?
-    return if params['age'] <= 0 || params['age'] > 90
-    return if params['gender'] != 'male' && params['gender'] != 'female'
+    user = User.new({
+      name: name,
+      patronymic: patronymic,
+      email: email,
+      age: age,
+      nationality: nationality,
+      country: country,
+      gender: gender,
+      full_name: user_full_name
+    })
 
-    user_full_name = "#{params['surname']} #{params['name']} #{params['patronymic']}"
-    user_params = params.except(:interests)
-    user = User.create(user_params.merge(user_full_name: user_full_name))
-
-    Interest.where(name: params['interests']).each do |interest|
-      user.interests << interest
+    if user.save
+      assign_interests(user)
+      assign_skills(user)
+      user
+    else
+      errors.merge!(user.errors)
     end
+  end
 
-    user_skills = []
-    params['skills'].split(',').each do |skill_name|
-      skill = Skil.find_by(name: skill_name)
-      user_skills << skill if skill
+  private
+
+  def assign_interests(user)
+    interests_to_add = Interest.where(name: interests)
+    interests_to_add.each do |interest|
+      user.interests << interest unless user.interests.include?(interest)
     end
-    user.skills << user_skills
-    user.save
+  end
+
+  def assign_skills(user)
+    skills_to_add = Skill.where(name: skills)
+    skills_to_add.each do |skill|
+      user.skills << skill unless user.skills.include?(skill)
+    end
   end
 end
